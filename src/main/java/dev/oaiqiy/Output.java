@@ -18,7 +18,7 @@ public class Output {
         FileOutputStream fileOutputStream = new FileOutputStream(file);
 
         for(Tuple2<String,Double> s : list){
-            fileOutputStream.write((s._1 + "\t" + s._2 + "\n").getBytes(StandardCharsets.UTF_8));
+            fileOutputStream.write((s._1 + "," + s._2 + "\n").getBytes(StandardCharsets.UTF_8));
 
         }
 
