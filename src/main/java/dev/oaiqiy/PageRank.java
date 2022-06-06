@@ -1,20 +1,15 @@
 package dev.oaiqiy;
 
 import com.google.common.collect.Iterables;
-import org.apache.commons.logging.Log;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.api.java.function.PairFunction;
-import org.slf4j.Logger;
 import scala.Tuple2;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class PageRank {
@@ -26,21 +21,37 @@ public class PageRank {
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         String rankPath = "F:\\javaProject\\spark-pagerank\\src\\main\\resources\\dataset\\pr.txt";
-        String linkPath = "F:\\javaProject\\spark-pagerank\\src\\main\\resources\\dataset\\transition.txt";
+        String linkPath = "F:\\javaProject\\spark-pagerank\\src\\main\\resources\\dataset\\web-Google.txt";
         String outputPath = "F:\\javaProject\\spark-pagerank\\src\\main\\resources\\output.txt";
 
-        JavaPairRDD<String, Double> ranks = sc.textFile(rankPath).mapToPair(
-                (PairFunction<String, String, Double>) s -> {
-                    String[] kv = s.split("\t");
-                    return new Tuple2<>(kv[0], 1.0);
+        JavaPairRDD<String,Iterable<String>> links = sc.textFile(linkPath).mapToPair(new PairFunction<String, String, String>() {
+            @Override
+            public Tuple2<String, String> call(String s) throws Exception {
+                String[] kv = s.split("\\s+|\\t");
+                return new Tuple2<>(kv[0],kv[1]);
+            }
+        }).distinct().groupByKey().cache();
+
+        JavaPairRDD<String,Double> ranks = links.keys().mapToPair(new PairFunction<String, String, Double>() {
+            @Override
+            public Tuple2<String, Double> call(String s) throws Exception {
+                return new Tuple2<String, Double>(s,1.0);
+            }
         });
 
-        JavaPairRDD<String, Iterable<String>> links = sc.textFile(linkPath).mapToPair(
-                (PairFunction<String, String, Iterable<String>>) s -> {
-                    String[] kv = s.split("\\s{2,}|\t");
-                    String[] values = kv[1].split(",");
-                    return new Tuple2<>(kv[0], Arrays.asList(values));
-        });
+
+//        JavaPairRDD<String, Double> ranks = sc.textFile(rankPath).mapToPair(
+//                (PairFunction<String, String, Double>) s -> {
+//                    String[] kv = s.split("\t");
+//                    return new Tuple2<>(kv[0], 1.0);
+//        });
+//
+//        JavaPairRDD<String, Iterable<String>> links = sc.textFile(linkPath).mapToPair(
+//                (PairFunction<String, String, Iterable<String>>) s -> {
+//                    String[] kv = s.split("\\s{2,}|\t");
+//                    String[] values = kv[1].split(",");
+//                    return new Tuple2<>(kv[0], Arrays.asList(values));
+//        });
 
 
         for(int i = 0;i < count;i++){
@@ -58,16 +69,16 @@ public class PageRank {
                         return result.iterator();
             });
 
-
             ranks = contributions.reduceByKey((Function2<Double, Double, Double>) Double::sum)
                     .mapValues(sum -> 0.15 + sum * 0.85);
 
         }
 
-
         List<Tuple2<String,Double>> output = ranks.collect();
 
         sc.stop();
+
+        System.out.println("stop");
 
         // sort output list
         output = new ArrayList<>(output);
